@@ -3,9 +3,9 @@ Tema 2 - Sandu Daniela Teodora - 235
 */
 --Partea I
 --1
-select * 
+select count(*) 
 from employees
-where last_name='Grant';
+where upper(last_name) like 'K%';
 
 --2
 select employee_id, last_name, first_name
@@ -14,7 +14,7 @@ where salary = (select min(salary)
                 from employees);
     
 --3
-select employee_id, last_name
+select distinct employee_id, last_name
 from employees 
 where  employee_id in (select distinct manager_id 
                         from employees
@@ -35,22 +35,22 @@ from employees e
 where e.last_name in (select last_name from employees where e.employee_id!=employee_id)
 order by 2;
 
---6???????
+--6
 select distinct d.department_id, d.department_name
 from departments d
-full outer join employees e on e.department_id=d.department_id
-where 2<= (select sum(count(*))
-        from employees
-        where department_id=d.department_id and job_id!=e.job_id
-        group by job_id)
+join employees e on e.department_id=d.department_id
+join jobs j on j.job_id=e.job_id
+group by d.department_id, d.department_name
+having count(distinct e.job_id) >= 2
 order by 1;
                         
 --Partea II
 --7
-select o.qty
+select p.prod_id, count(o.ord_num) Cantitate
 from orders_tbl o
 join products_tbl p on o.prod_id=p.prod_id
-where lower(p.prod_desc) like '%plastic%';
+where lower(p.prod_desc) like '%plastic%'
+group by  p.prod_id;
 
 --8
 select emp_id "ID", last_name || ' ' || first_name "NUME", 'ANGAJAT' tip
@@ -60,14 +60,13 @@ select cust_id, cust_name, 'CLIENT'
 from customer_tbl;
 
 --9
-select p.prod_desc
+select distinct p.prod_desc
 from products_tbl p
 join orders_tbl o on p.prod_id=o.prod_id
-where o.sales_rep in (select f.emp_id
-                        from employee_tbl f
-                        join orders_tbl a on a.sales_rep=f.emp_id
-                        join products_tbl q on q.prod_id=a.prod_id
-                        where q.prod_desc like '% P%' and q.prod_id!=p.prod_id);
+where o.sales_rep in (select sales_rep 
+                        from orders_tbl
+                        join products_tbl using(prod_id)
+                        where length(prod_desc) - length(replace(prod_desc, ' ', '')) + 1 >= 2 and regexp_like(prod_desc, '\w+\sP.+'));
                         
 --10
 select c.cust_name
@@ -90,15 +89,12 @@ left outer join (select sales_rep, sum(qty) qty
 where a.qty>=50;
 
 --13
-select e.emp_id,e.last_name || ' ' || e.first_name nume, f.salary, o.ord_date
+select e.last_name , e.first_name nume, f.salary, o.ord_date
 from employee_tbl e
 full join employee_pay_tbl f on e.emp_id=f.emp_id
 full join orders_tbl o on o.sales_rep=e.emp_id
-where 2<=(select count(*)
-            from orders_tbl
-            where sales_rep=e.emp_id) and o.ord_date=(select max(ord_date)
-                                                        from orders_tbl
-                                                        where sales_rep=e.emp_id);
+group by e.last_name, e.first_name, f.salary
+having count(ord_num) >= 2;
 
 --14
 select prod_id "ID"
@@ -109,19 +105,18 @@ where cost>=(select avg(cost)
 --15
 select e.last_name, e.first_name, f.salary, f.bonus, (select sum(bonus) 
                                                     from employee_pay_tbl) bonus_total, (select sum(salary) 
-                                                                                        from employee_pay_tbl) salary
+                                                                                        from employee_pay_tbl) salary_total
 from employee_tbl e
 full join employee_pay_tbl f on e.emp_id=f.emp_id;
 
---16?????????????
+--16
 select distinct e.city
 from employee_tbl e
 full join orders_tbl o on e.emp_id=o.sales_rep
-where (select count(*)
-        from orders_tbl 
-        where sales_rep=e.emp_id)=(select max(count(*))
-                                        from orders_tbl
-                                        group by sales_rep);
+having count(ord_num) = 
+    (select max(count(ord_num))
+     from orders_tbl
+     group by sales_rep);
                                         
 --17
 select e.emp_id, e.last_name, sum(decode(lower(extract(month from o.ord_date)),
@@ -133,21 +128,15 @@ full join orders_tbl o on o.sales_rep=e.emp_id
 group by e.emp_id, e.last_name;
 
 --18
-select last_name || ' ' || first_name nume, city
-from employee_tbl 
-where (address like '0%' or
-    address like '1%' or
-    address like '2%' or
-    address like '3%' or
-    address like '4%' or
-    address like '5%' or
-    address like '6%' or
-    address like '7%' or
-    address like '8%' or
-    address like '9%' ) and emp_id not in (select sales_rep from orders_tbl);
+select c.cust_name, c.cust_city
+from customer_tbl c
+left outer join orders_tbl o on c.cust_id=o. cust_id
+where regexp_like(c.cust_zip,'[0-9].+')
+group by c.cust_name, c.cust_city
+having count(o.ord_num) = 0;
     
 --19
-select e.emp_id, e.last_name || ' ' || e.first_name nume, e.city, c.cust_id, c.cust_name, c.cust_city
+select distinct e.emp_id, e.last_name || ' ' || e.first_name nume, e.city, c.cust_id, c.cust_name, c.cust_city
 from employee_tbl e
 join orders_tbl o on o.sales_rep=e.emp_id
 join customer_tbl c on c.cust_id=o.cust_id;
